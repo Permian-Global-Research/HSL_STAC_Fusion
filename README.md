@@ -126,7 +126,7 @@ for i in items:
   print(i.get_collection())
 ```
 
-#### Extract oindicental bands from Sentinel-2 and Landsat missions
+#### Extract coindicental bands from Sentinel-2 and Landsat missions
 
 ```python
    # Filtering bands
@@ -188,3 +188,6 @@ dilated = mask_cleanup(cloud_mask, [("opening", 2), ("dilation", 3)])
 masked = data.where(~dilated)
 masked
 ```
+
+## Find a bug?
+If you found an issue or would like to submit an improvement to this project, please submit an issue using the issues tab above. If you would like to submit a PR with a fix, reference the issue you created! Thanks!
