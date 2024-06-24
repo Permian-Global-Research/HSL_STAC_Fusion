@@ -1,22 +1,18 @@
 # HSL_STAC_Fusion
-
+## Aim
 <img align="Right"  src= "https://github.com/Permian-Global-Research/HSL_STAC_Fusion/assets/69790440/29ef2293-6a01-4080-8ab1-a8a737a35165" width="250" height="250" />
 
 Script to Fuse the 2 branches (HSL.S &amp; HSL.L) of the NASA -Harmonized Sentinel Landsat (HSL) dataset into a single datacube, and generate Median composites that include spectral indexes such as NDVI, EVI.
 
+This repository contains the project focused on merging the Harmonized Sentinel Landsat collections for the generation of image composites. Exploring the two versions of the HSL collections: HSL.S[Sentinel version] & HSL.L [Landsat version] we identified the lack of a product that would unify the spectral bands within a single datacube. Therefore, this script was created to respond to this, generating a harmonized datacube in which the coincident bands in both constellations are merged.
+
+##### Available bands and HSL-Fusion bands (green)
+
+<img align="Center" src= "https://github.com/Permian-Global-Research/HSL_STAC_Fusion/assets/69790440/925d6947-0d75-4f99-beed-fd44b7753e70" width="600" height="350"/>
 
 
 
-
-> [!IMPORTANT]
-> Key information users need to know to achieve their goal.
-
-> [!CAUTION]
-> Advises about risks or negative outcomes of certain actions.
-
-## Aim
-
-## Section 
+## Main sections 
 
 * Harmonised Sentinel and Landsat Catalogue Fusion
     * _Bands selection and re-naming_
@@ -25,7 +21,13 @@ Script to Fuse the 2 branches (HSL.S &amp; HSL.L) of the NASA -Harmonized Sentin
 * Total imagery coverage | Region of Interest
 * Spectral indexes | Normalised Difference Vegetation Index (NDVI) & Enhanced Vegetation Index (EVI)
 
-#### Inputs - How to tweak this project for your own uses
+## Inputs - How to tweak this project for your own uses
+
+Use following example as reference:
+   * Use your unique NASA-ASFCatalogue Token
+   * Set your Region of Interest name
+   * Filter your search using your ROI geographical bounding box
+   * Filter catalogue by dates
 
 
 ## Example
