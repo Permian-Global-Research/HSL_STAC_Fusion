@@ -189,5 +189,168 @@ masked = data.where(~dilated)
 masked
 ```
 
+#### Create Annual Median Composite
+
+```python
+
+# Enable logging to track progress
+logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO)
+
+def retry_with_backoff(url, max_retries=5):
+    """Retry a request with exponential backoff."""
+    for i in range(max_retries):
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            return response
+        except HTTPError as e:
+            logging.warning(f"HTTP error ({e.response.status_code}) - {url}. Retrying again in {2**i} secs")
+            time.sleep(2**i)
+    logging.error(f"Failed to retrieve data from {url} after {max_retries} retries")
+    return None
+
+# Create a simple cloud-free median now we have masked data
+logging.info("Computing cloud-free median...")
+num_steps = masked.time.size
+with tqdm(total=num_steps) as pbar:
+    median = []
+    for step in range(num_steps):
+        try:
+            median.append(masked.isel(time=step))
+            pbar.update(1)
+        except Exception as e:
+            logging.error(f"Error processing step {step}: {e}")
+median = xr.concat(median, dim='time').median("time").compute()
+
+```
+
+![image](https://github.com/Permian-Global-Research/HSL_STAC_Fusion/assets/69790440/5b7b12cc-5bdb-4552-b84b-025691bbff16)
+
+
+
+#### Calculate the total ROI area covered
+
+```
+    # Show Image and Total ROI area covered by image composite 
+
+roi = 'Kuamut'
+# Calculate the area of the 'Kuamut project area' polygon
+project_area_sqm = gdf.geometry.to_crs('EPSG:32650').area.sum()
+
+# Calculate the area covered by the satellite image within the 'Kuamut project area'
+clipped_image = median.rio.clip(gdf.geometry)
+resolution = 30  # Example resolution, replace with actual resolution if known
+image_area_sqm = (clipped_image["RED"].count() * resolution ** 2)
+
+# Calculate the percentage of the area covered by the satellite image relative to the total area of the 'Kuamut project area'
+percentage_covered = (image_area_sqm / project_area_sqm) * 100
+
+# Plot the satellite image
+fig, ax = plt.subplots(figsize=(10, 10))
+vmin, vmax = median["RED"].min(), median["RED"].max()
+rgb = median[["RED", "GREEN", "BLUE"]].to_array()
+rgb.plot.imshow(ax=ax, vmin=0, vmax=1000, extent=(median.x.min(), median.x.max(), median.y.min(), median.y.max()))
+gdf.plot(ax=ax, color='none', edgecolor='red')
+
+# Annotate the plot with the calculated percentage of coverage
+plt.text(0.95, 0.95, f'Total Coverage: {percentage_covered:.2f}%', horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, fontsize=12, bbox=dict(facecolor='white', alpha=0.8))
+
+# Set the plot title
+plt.title(f'HSL Cloud-Free Composite {roi} {year}')
+
+# Rename the axis labels
+plt.xlabel('X coordinates')
+plt.ylabel('Y coordinates')
+
+# Save the plot as a high-resolution JPEG image
+output_path = f"HSL_CloudFreeComposite_{roi}{year}.jpg"
+plt.savefig(output_path, dpi=300)  # Set the dpi parameter to adjust the resolution
+
+plt.show()
+```
+![image](https://github.com/Permian-Global-Research/HSL_STAC_Fusion/assets/69790440/474890ee-4ce6-437f-942c-47d65b44fd73)
+
+
+
+#### NDVI calculation
+
+```
+    # Normalised Difference Vegetation Index (NDVI)
+
+# Select bands B05 (NIR) and B04 (Red) from the median image
+nir_median = median['NIR']
+red_median = median['RED']
+
+# Calculate NDVI for the median image
+ndvi_median = (nir_median - red_median) / (nir_median + red_median)
+
+# Add NDVI as a new variable to the median image dataset
+median_with_ndvi = median.assign(NDVI=ndvi_median)
+
+# Set up a larger figure size
+plt.figure(figsize=(10, 8))
+
+# Visualize the NDVI band with scale adjusted to 0 to 1
+plt.imshow(median_with_ndvi.NDVI, cmap='RdYlGn', extent=(0, median_with_ndvi.NDVI.shape[1], 0, median_with_ndvi.NDVI.shape[0]), vmin=0, vmax=1)
+plt.colorbar(label='NDVI')
+plt.title(f'NDVI of Median Composite {roi}{year}')
+plt.show()
+```
+![image](https://github.com/Permian-Global-Research/HSL_STAC_Fusion/assets/69790440/01de48fb-c636-4d07-b93d-0a7dee109811)
+
+#### EVI calculation
+```
+    # Enhanced Vegetation Index (EVI)
+    
+# Constants for EVI calculation
+G = 2.5
+C1 = 6
+C2 = 7.5
+L = 1
+
+import matplotlib.pyplot as plt
+
+# Select bands B05 (NIR) and B04 (Red) from the median image
+nir = median_with_ndvi['NIR']
+red = median_with_ndvi['RED']
+blue = median_with_ndvi['BLUE']
+
+    # Calculate EVI
+evi_median = G * ((nir - red) / (nir + C1 * red - C2 * blue + L))
+
+# Add NDVI as a new variable to the median image dataset
+median_with_evi = median_with_ndvi.assign(EVI=evi_median)
+
+# Set up a larger figure size
+plt.figure(figsize=(10, 8))
+
+# Visualize the NDVI band with scale adjusted to 0 to 1
+plt.imshow(median_with_evi.EVI, cmap='RdYlGn', extent=(0, median_with_evi.EVI.shape[1], 0, median_with_evi.EVI.shape[0]), vmin=0, vmax=3)
+plt.colorbar(label='EVI')
+plt.title(f'EVI of Median Composite {roi}{year}')
+plt.show()
+```
+![image](https://github.com/Permian-Global-Research/HSL_STAC_Fusion/assets/69790440/145eea02-1c70-481e-9ed2-d1134afee09d)
+
+
+#### Save your composite as a Cloud-optimised GeoTiff in your repository
+```
+    # Save Composite image with both NDVI and EVI indexes
+
+import os
+import rioxarray as rxr
+# Assuming median_with_ndvi contains the raster dataset
+
+# Get the current working directory
+current_dir = os.getcwd()
+
+# Define the file path for the COG
+cog_path = os.path.join(current_dir, f"{roi}_HSL_Median{year}_V6.tif")
+
+# Save the dataset as a Cloud Optimized GeoTIFF
+median_with_evi.rio.to_raster(cog_path, driver="GTiff", tif_cog_profile="deflate")
+
+```
+
 ## Find a bug?
 If you found an issue or would like to submit an improvement to this project, please submit an issue using the issues tab above. If you would like to submit a PR with a fix, reference the issue you created! Thanks!
